@@ -7,11 +7,12 @@ import (
 	firebase "firebase.google.com/go"
 	"fmt"
 	"log"
+	"os"
+	"sync"
 	"time"
 )
 
 var ctx = context.Background()
-var conf = &firebase.Config{ProjectID: "PROJECT_ID"}
 
 var firebaseApp *firebase.App
 var firestoreClient *firestore.Client
@@ -30,6 +31,10 @@ func NewUser(name string, createdAt time.Time) *User {
 
 func InitFirebase() {
 	var err error
+	var projectID = os.Getenv("PROJECT_ID")
+
+	var conf = &firebase.Config{ProjectID: projectID}
+
 	firebaseApp, err = firebase.NewApp(ctx, conf)
 	if err != nil {
 		log.Fatalf("error initializing app: %v\n", err)
@@ -43,23 +48,28 @@ func initializeFirestore() {
 	firestoreClient, err = firebaseApp.Firestore(ctx)
 
 	if err != nil {
-		log.Fatalf("error initializing app: %v\n", err)
+		fmt.Printf("error initializing app: %v\n", err)
+		return
 	}
 
 }
 
-func GetRegisteredUsersSize() (int, error) {
+func GetRegisteredUsersSize(wg *sync.WaitGroup) {
+	wg.Add(1)
+	defer wg.Done()
 	if firestoreClient == nil {
-		return 0, errors.New("firebase Not initialized")
+		fmt.Println(errors.New("firebase Not initialized"))
+		return
 	}
 
 	docs, err := firestoreClient.Collection("users").Documents(ctx).GetAll()
+
 	if err != nil {
-		log.Fatalf("can't fetch docs for users %v\n", err)
-		return 0, err
+		fmt.Printf("can't fetch docs for users %v\n", err)
+		return
 	}
 
-	return len(docs), nil
+	fmt.Println(len(docs))
 }
 
 func GetNewlyRegisteredUsers(limit int, fromDate string) ([]User, error) {
